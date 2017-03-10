@@ -7,10 +7,10 @@ This game uses a peer-to-peer lockstep. Each player will wait until they have re
 The physics simulation will run at 60hz or around 16ms per step or turn. This means that if you have a max latency of 65ms in your game, you should set the buffer around 5 or 6 (65/16=4). If latency spikes above 65, you will experience jitter until it drops back down. The buffer does not once the game is started.
 
 ## Libraries/Framework
-[LÖVE](https://love2d.org/) - Love2d is an Open source 2d game programming framework
-[lua-enet](http://leafo.net/lua-enet/) - UDP networking
-[SUIT](suit.readthedocs.io/en/latest/) - Simple User Interface Toolkit for LOVE
-[Classic](https://github.com/rxi/classic) - Tiny class module for Lua
+* [LÖVE](https://love2d.org/) - Love2d is an Open source 2d game programming framework
+* [lua-enet](http://leafo.net/lua-enet/) - UDP networking
+* [SUIT](suit.readthedocs.io/en/latest/) - Simple User Interface Toolkit for LOVE
+* [Classic](https://github.com/rxi/classic) - Tiny class module for Lua
 
 ## Credits
 [Kenney](http://kenney.nl/) for the Graphics
