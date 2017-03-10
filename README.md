@@ -9,8 +9,8 @@ The physics simulation will run at 60hz or around 16ms per step or turn. This me
 ## Libraries/Framework
 * [LÖVE](https://love2d.org/) - Love2d is an Open source 2d game programming framework
 * [lua-enet](http://leafo.net/lua-enet/) - UDP networking
-* [SUIT](suit.readthedocs.io/en/latest/) - Simple User Interface Toolkit for LOVE
+* [SUIT](http://suit.readthedocs.io/en/latest/) - Simple User Interface Toolkit for LOVE
 * [Classic](https://github.com/rxi/classic) - Tiny class module for Lua
 
 ## Credits
-[Kenney](http://kenney.nl/) for the Graphics
+* [Kenney](http://kenney.nl/) for the Graphics
