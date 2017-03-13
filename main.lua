@@ -1,4 +1,5 @@
 require "enet"
+require "player"
 local suit = require "suit"
 
 local address, port = "127.0.0.1", 34567
@@ -24,6 +25,9 @@ function love.load()
   else
     status = "Status: not connected"
   end
+  
+  player = Player()
+  
 end
 
 function love.update(dt)
@@ -32,7 +36,7 @@ function love.update(dt)
   
   -- This "resets" the layout, which means it literally re-sets the layout
   -- in a different spot with a padding of 4 on left, right, top and bottom.
-  suit.layout:reset(100, 250, 4, 4)
+  suit.layout:reset(156, 300, 4, 4)
   
   -- This simply creates a text field in the layout set above with a
   -- width of 200 and height of 30.
@@ -79,13 +83,16 @@ function love.update(dt)
   -- This re-sets the layout in another spot with the same padding. 
   -- This allows us to set other elements regardless of the previous
   -- element placed. It effectively create another layout.
-  suit.layout:reset(100, 325, 4, 4)
+  suit.layout:reset(156, 375, 4, 4)
   suit.Label(status, suit.layout:row(200, 30))
+  
+  player:update(dt)
   
 end -- update(dt)
 
 function love.draw()
   suit.draw()
+  player:draw()
 end
 
 function love.textinput(t)
@@ -94,5 +101,30 @@ end
 
 function love.keypressed(key)
   suit.keypressed(key)
+  
+  if (key == "up") or (key == "w") then
+    player:keyDown(3)
+  elseif (key == "left") or (key == "a") then
+    player:keyDown(2)
+  elseif (key == "down") or (key == "s") then
+    player:keyDown(1)
+  elseif (key == "right") or (key == "d") then
+    player:keyDown(0)
+  end
+  
+end
+
+function love.keyreleased(key)
+  
+  if (key == "up") or (key == "w") then
+    player:keyUp(3)
+  elseif (key == "left") or (key == "a") then
+    player:keyUp(2)
+  elseif (key == "down") or (key == "s") then
+    player:keyUp(1)
+  elseif (key == "right") or (key == "d") then
+    player:keyUp(0)
+  end
+  
 end
 
