@@ -86,7 +86,6 @@ function love.update(dt)
   suit.layout:reset(156, 375, 4, 4)
   suit.Label(status, suit.layout:row(200, 30))
   
-  player:updateMouse(love.mouse.getPosition())
   player:update(dt)
   
 end -- update(dt)
