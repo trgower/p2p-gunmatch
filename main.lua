@@ -13,12 +13,14 @@ local rightBtnText = "Join"
 local hosting = false
 local joined = false
 local ready = false
+local players = {}
+local tick = 1
 
 local input = {text = ""}
 
 function love.load()
   -- Allows the user to hold down a key to simulate repeated key presses
-  love.keyboard.setKeyRepeat(true)
+  love.keyboard.setKeyRepeat(false)
   
   if event and (event.type == "connect") then
     status = "Status: connected"
@@ -27,6 +29,7 @@ function love.load()
   end
   
   player = Player()
+  table.insert(players, player)
   
 end
 
@@ -86,13 +89,30 @@ function love.update(dt)
   suit.layout:reset(156, 375, 4, 4)
   suit.Label(status, suit.layout:row(200, 30))
   
-  player:update(dt)
+  local commandsReceived = true
+  for i, p in ipairs(players) do
+    if not p:tickReady(tick) then
+      commandsReceived = false
+    end
+  end
+  if commandsReceived then
+    for i, p in ipairs(players) do
+      if i == 1 then
+        p:queueMouse(love.mouse.getPosition())
+      end
+      p:update(dt)
+    end
+    
+    tick = tick + 1
+  end
   
 end -- update(dt)
 
 function love.draw()
   suit.draw()
-  player:draw()
+  for i, p in pairs(players) do
+    p:draw()
+  end
 end
 
 function love.textinput(t)
@@ -103,25 +123,25 @@ function love.keypressed(key)
   suit.keypressed(key)
   
   if (key == "up") or (key == "w") then
-    player:keyDown(3)
+    player:queueKeyDown(3)
   elseif (key == "left") or (key == "a") then
-    player:keyDown(2)
+    player:queueKeyDown(2)
   elseif (key == "down") or (key == "s") then
-    player:keyDown(1)
+    player:queueKeyDown(1)
   elseif (key == "right") or (key == "d") then
-    player:keyDown(0)
+    player:queueKeyDown(0)
   end
 end
 
 function love.keyreleased(key)
   if (key == "up") or (key == "w") then
-    player:keyUp(3)
+    player:queueKeyUp(3)
   elseif (key == "left") or (key == "a") then
-    player:keyUp(2)
+    player:queueKeyUp(2)
   elseif (key == "down") or (key == "s") then
-    player:keyUp(1)
+    player:queueKeyUp(1)
   elseif (key == "right") or (key == "d") then
-    player:keyUp(0)
+    player:queueKeyUp(0)
   end
 end
 
