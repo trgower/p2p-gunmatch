@@ -3,25 +3,31 @@ Player = Object:extend()
 
 function Player:new()
   self.image = love.graphics.newImage("assets/soldier.png")
-  self.x = 25
-  self.y = 25
+  self.x = 0
+  self.y = 0
+  self.mouse = {}
+  self.mouse.x = self.x + 25 -- face right
+  self.mouse.y = 0
+  self.mouse.angle = 0
   self.direction = {}
   self.direction.x = 1
   self.direction.y = 0
   self.keysDown = {} -- North('n') South('s') East('e') West('w')
-  self.speed = 4
+  self.speed = 200
 end
 
 function Player:update(dt)
   self:updateDirectionVector()
   if table.getn(self.keysDown) > 0 then
-    self.x = self.x + (self.direction.x * self.speed)
-    self.y = self.y + (self.direction.y * self.speed)
+    self.x = self.x + (self.direction.x * self.speed * dt)
+    self.y = self.y + (self.direction.y * self.speed * dt)
   end
 end
 
 function Player:draw()
-  love.graphics.draw(self.image, self.x, self.y)
+  love.graphics.draw(self.image, self.x, self.y, self.mouse.angle, 1, 1,
+    self.image:getWidth() / 2, self.image:getHeight() / 2)
+  love.graphics.points(self.x, self.y)
 end
 
 function Player:updateDirectionVector()
@@ -45,6 +51,12 @@ function Player:updateDirectionVector()
   end
 end
 
+function Player:updateMouse(x, y)
+  self.mouse.x = x
+  self.mouse.y = y
+  self.mouse.angle = math.atan2((y - self.y), (x - self.x))
+end
+
 function Player:keyDown(dir)
   for i, v in pairs(self.keysDown) do
     if v == dir then
@@ -60,4 +72,12 @@ function Player:keyUp(dir)
       table.remove(self.keysDown, i)
     end
   end
+end
+
+function Player:getX()
+  return self.x
+end
+
+function Player:getY()
+  return self.y
 end

@@ -86,6 +86,7 @@ function love.update(dt)
   suit.layout:reset(156, 375, 4, 4)
   suit.Label(status, suit.layout:row(200, 30))
   
+  player:updateMouse(love.mouse.getPosition())
   player:update(dt)
   
 end -- update(dt)
@@ -111,11 +112,9 @@ function love.keypressed(key)
   elseif (key == "right") or (key == "d") then
     player:keyDown(0)
   end
-  
 end
 
 function love.keyreleased(key)
-  
   if (key == "up") or (key == "w") then
     player:keyUp(3)
   elseif (key == "left") or (key == "a") then
@@ -125,6 +124,5 @@ function love.keyreleased(key)
   elseif (key == "right") or (key == "d") then
     player:keyUp(0)
   end
-  
 end
 
