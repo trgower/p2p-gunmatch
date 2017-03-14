@@ -6,10 +6,21 @@ Object = require "classic"
 Player = Object:extend()
 
 --- Creates a new Player object
-function Player:new(cid)
-  self.image = love.graphics.newImage("assets/soldier.png")
-  self.x = 0
-  self.y = 0
+function Player:new(mid, address)
+  if mid == "hitman" then
+    self.x = 100
+    self.y = 100
+  elseif mid == "soldier" then
+    self.x = 412
+    self.y = 100
+  elseif mid == "robot" then
+    self.x = 100
+    self.y = 412
+  elseif mid == "survivor" then
+    self.x = 412
+    self.y = 412
+  end
+  
   self.angle = 0
   self.mouse = {}
   self.mouse.x = 0
@@ -20,30 +31,42 @@ function Player:new(cid)
   self.keysDown = {} -- North('n') South('s') East('e') West('w')
   self.speed = 200
   self.buffer = Buffer()
-  self.bufferWidth = 5 -- 5 ticks
+  self.bufferWidth = 10 -- 5 ticks
   self.ticks = {}
+  self.neededTick = self.bufferWidth + 1
   self.currentTick = Tick(self.bufferWidth + 1)
-  self.bufferCount = 0
   self.remote = false
-  self.connectid = 0
-  if cid then
-    self.connectid = cid
+  self.connectstatus = true
+  if address then
+    self.address = address
+    self.remote = true
+    self.connectstatus = false
   end
+  self.mid = mid
+  self.image = love.graphics.newImage("assets/" .. self.mid .. ".png")
   
   for i = 1, self.bufferWidth, 1 do
     self.buffer:pushright(Tick(i))
-    self.bufferCount = self.bufferCount + 1
   end
 end
 
 --- Updates the player's position/physics.
 -- This is called every love.update(dt)
 -- @param dt delta time since last called
-function Player:update(dt)
+function Player:update(dt, host)
   -- execute command in buffer 
-  cTick = self.buffer:popleft()
-  --print(cTick:getNumber())
-  self:executeTick(cTick)
+  self:executeTick(self.buffer:popleft())
+  
+  -- add commands to buffer (tick + buffer)
+  if not self.remote then
+    if host then
+      host:broadcast(self.currentTick:serialize())
+    end
+    self.buffer:pushright(self.currentTick)
+    self.currentTick = Tick(self.currentTick:getNumber())
+  else 
+    self:addTicksRemote()
+  end
   
   self:updateAngle()
   self:updateDirectionVector()
@@ -51,23 +74,7 @@ function Player:update(dt)
     self.x = self.x + (self.direction.x * self.speed * dt)
     self.y = self.y + (self.direction.y * self.speed * dt)
   end
-  
-  -- add commands to buffer (tick + buffer)
-  if not self.remote then
-    self.buffer:pushright(self.currentTick)
-    self.bufferCount = self.bufferCount + 1
-    self.currentTick = Tick(self.currentTick:getNumber())
-  else 
-    for i, v in pairs(self.ticks) do
-      if i == (self.bufferCount + 1) then
-        self.buffer:pushright(v)
-        self.bufferCount = self.bufferCount + 1
-        self.ticks[i] = nil 
-      end
-    end
-  end
-  -- send commands
-  
+  print(self.address, self.buffer:getCount())
   self.currentTick:incTickNum()
 end
 
@@ -76,7 +83,6 @@ end
 function Player:draw()
   love.graphics.draw(self.image, self.x, self.y, self.angle, 1, 1,
     self.image:getWidth() / 2, self.image:getHeight() / 2)
-  love.graphics.points(self.x, self.y)
 end
 
 --- Updates the direction vector based on direction keys pressed.
@@ -119,6 +125,35 @@ function Player:executeTick(tick)
       end
     end
   end
+end
+
+function Player:addTicks()
+  for i, v in pairs(self.ticks) do
+    if tonumber(i) == tonumber(self.neededTick) then
+      self.buffer:pushright(v)
+      self.ticks[i] = nil
+      self.neededTick = self.neededTick + 1
+      return true
+    end
+  end
+  return false
+end
+
+function Player:addTicksRemote()
+  while self:addTicks() do
+  end
+end
+
+function Player:isConnected()
+  return self.connectstatus
+end
+
+function Player:connected()
+  self.connectstatus = true
+end
+
+function Player:disconnected()
+  self.connectstatus = false
 end
 
 --- Updates the character's angle according to the mouse cursor.
@@ -197,18 +232,21 @@ function Player:processTickData(data)
       cmd:addData(splitted[i])
       i = i + 1
       cmd:addData(splitted[i])
+      tick:addCommand(cmd)
     elseif splitted[i] == "kd" then
       cmd = Command(splitted[i])
       i = i + 1
       for c in string.gmatch(splitted[i], ".") do
         cmd:addData(c)
       end
+      tick:addCommand(cmd)
     elseif splitted[i] == "ku" then
       cmd = Command(splitted[i])
       i = i + 1
       for c in string.gmatch(splitted[i], ".") do
         cmd:addData(c)
       end
+      tick:addCommand(cmd)
     end
     i = i + 1
   end
@@ -217,7 +255,7 @@ end
 
 function Player:tickReady(tnum)
   local t = self.buffer:peekleft()
-  if t and (t:getNumber() == tnum) then
+  if t and (tonumber(t:getNumber()) == tonumber(tnum)) then
     return true
   end
   return false
@@ -231,4 +269,16 @@ end
 --- Returns self.y
 function Player:getY()
   return self.y
+end
+
+function Player:isLocal()
+  return not self.remote
+end
+
+function Player:isRemote()
+  return self.remote
+end
+
+function Player:getAddress()
+  return self.address
 end

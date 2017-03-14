@@ -44,3 +44,11 @@ function Buffer:popright()
   self.last = last - 1
   return value
 end
+
+function Buffer:getCount()
+  local count = 0
+  for i, v in pairs(self.buf) do
+    count = count + 1
+  end
+  return count
+end
