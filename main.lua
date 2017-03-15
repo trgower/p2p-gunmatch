@@ -171,7 +171,7 @@ function processEvent(event)
       statusMessage("Host ID Copied to clipboard!")
       love.system.setClipboardText(splitted[2])
     elseif splitted[1] == "joined" then -- A peer has joined the lobby
-      local tpeer = Player(splitted[2], splitted[3])
+      local tpeer = Player(splitted[3], splitted[2])
       table.insert(players, tpeer)
       statusMessage("A peer joined")
     elseif splitted[1] == "joingood" then -- You successfully joined a lobby
@@ -189,7 +189,7 @@ function processEvent(event)
       rightBtnText = "Ready"
       statusMessage("Not ready")
     elseif splitted[1] == "peerinfo" then -- Peer info received after joining
-      local tpeer = Player(splitted[2], splitted[3])
+      local tpeer = Player(splitted[3], splitted[2], splitted[4])
       table.insert(players, tpeer)
     elseif splitted[1] == "left" then -- A player has left the lobby/game
       for i, v in pairs(players) do
@@ -216,6 +216,9 @@ function processEvent(event)
       bufferInput = bufferInput - 1
     elseif splitted[1] == "buk" then -- Buffer up ok
       bufferInput = bufferInput + 1
+    elseif splitted[1] == "ccu" then -- character change update
+      local p = getPlayerWithAddress(splitted[2])
+      p:setModel(tonumber(splitted[3]))
     elseif splitted[1] == "fix" then -- Connect ID sent from peer
       local p = getPlayerWithAddress(tostring(event.peer))
       if p then
@@ -267,6 +270,21 @@ end
 
 function mainMenuUI(dt)
   if not running then
+    if joined then
+      -- Buffer buttons
+      suit.layout:reset(168, 478, 4, 4)
+      
+      if suit.Button("<", suit.layout:col(40, 30)).hit then
+        player:leftModel()
+        server:send("pmu " .. player:getModel())
+      end
+      suit.Label("Skin", {align="center"}, suit.layout:col(80, 30))
+      if suit.Button(">", suit.layout:col(40, 30)).hit then
+        player:rightModel()
+        server:send("pmu " .. player:getModel())
+      end
+    end
+    
     if hosting then
       -- Buffer buttons
       suit.layout:reset(410, 478, 4, 4)
@@ -349,7 +367,7 @@ function mainMenuUI(dt)
     -- This allows us to set other elements regardless of the previous
     -- element placed. It effectively create another layout.
     suit.layout:reset(0, 490, 4, 4)
-    suit.Label(cstatus, {align="left"}, suit.layout:row(200, 30))
+    suit.Label(cstatus, {align="left"}, suit.layout:row(150, 30))
   end
 end
 

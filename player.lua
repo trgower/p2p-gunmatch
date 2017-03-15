@@ -6,17 +6,19 @@ Object = require "classic"
 Player = Object:extend()
 
 --- Creates a new Player object
-function Player:new(mid, address)
-  if mid == "hitman" then
+function Player:new(spot, address, mid)
+  spot = tonumber(spot)
+  mid = tonumber(mid)
+  if spot == 1 then
     self.x = 100
     self.y = 100
-  elseif mid == "soldier" then
+  elseif spot == 2 then
     self.x = 412
     self.y = 100
-  elseif mid == "robot" then
+  elseif spot == 3 then
     self.x = 100
     self.y = 412
-  elseif mid == "survivor" then
+  elseif spot == 4 then
     self.x = 412
     self.y = 412
   end
@@ -31,13 +33,18 @@ function Player:new(mid, address)
   self.keysDown = {} -- North('n') South('s') East('e') West('w')
   self.speed = 200
   self.buffer = Buffer()
-  self.bufferWidth = 10 -- 5 ticks
+  self.bufferWidth = 10
   self.ticks = {}
   self.remote = true
   self.connectstatus = false
   self.address = address
   self.reconciled = false
-  self.mid = mid
+  if mid then
+    self.mid = mid
+  else
+    self.mid = spot
+  end
+  self.mnum = 4
   self.image = love.graphics.newImage("assets/" .. self.mid .. ".png")
   
 end
@@ -279,4 +286,31 @@ function Player:setBuffer(b)
     local t = Tick(i)
     self.buffer:pushright(t)
   end
+end
+
+function Player:leftModel()
+  if self.mid == 1 then
+    self.mid = 4
+  else
+    self.mid = self.mid - 1
+  end
+  self.image = love.graphics.newImage("assets/" .. self.mid .. ".png")
+end
+
+function Player:rightModel()
+  if self.mid == self.mnum then
+    self.mid = 1
+  else
+    self.mid = self.mid + 1
+  end
+  self.image = love.graphics.newImage("assets/" .. self.mid .. ".png")
+end
+
+function Player:getModel()
+  return self.mid
+end
+
+function Player:setModel(m)
+  self.mid = m
+  self.image = love.graphics.newImage("assets/" .. self.mid .. ".png")
 end
