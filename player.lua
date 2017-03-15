@@ -33,7 +33,6 @@ function Player:new(mid, address)
   self.buffer = Buffer()
   self.bufferWidth = 10 -- 5 ticks
   self.ticks = {}
-  self.neededTick = self.bufferWidth + 1
   self.remote = true
   self.connectstatus = false
   self.address = address
@@ -41,9 +40,6 @@ function Player:new(mid, address)
   self.mid = mid
   self.image = love.graphics.newImage("assets/" .. self.mid .. ".png")
   
-  for i = 1, self.bufferWidth, 1 do
-    self.buffer:pushright(Tick(i))
-  end
 end
 
 --- Updates the player's position/physics.
@@ -274,4 +270,13 @@ end
 --- Returns self.reconciled
 function Player:isReconciled()
   return self.reconciled
+end
+
+function Player:setBuffer(b)
+  self.bufferWidth = b
+  self.neededTick = self.bufferWidth + 1
+  for i = 1, self.bufferWidth, 1 do
+    local t = Tick(i)
+    self.buffer:pushright(t)
+  end
 end

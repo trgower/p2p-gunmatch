@@ -23,12 +23,20 @@ local tick = 1
 
 local reconSent = false
 
-local input = {text = ""}
+local hostIdInput = {text = ""}
+local bufferInput = 10
 
 function statusMessage(msg)
   statusTime = 0
   status = msg
   statusUp = true
+end
+
+function setBuffer(b)
+  player:setBuffer(b)
+  for i, p in pairs(players) do
+    p:setBuffer(b)
+  end
 end
 
 --- Connect to all players if you are not currently connected
@@ -153,7 +161,7 @@ function processEvent(event)
   if event.type == "receive" then
     local splitted = Split.split(event.data)
     if splitted[1] == "hostid" then -- Started a lobby!
-      input.text = splitted[2]
+      hostIdInput.text = splitted[2]
       hosting = true
       joined = true
       ready = true
@@ -202,7 +210,12 @@ function processEvent(event)
       tick = 1
       statusMessage("The host left! Oh NO!")
     elseif splitted[1] == "start" then -- Start the game!
+      setBuffer(tonumber(splitted[2]))
       connectToAll()
+    elseif splitted[1] == "bdk" then -- Buffer down ok
+      bufferInput = bufferInput - 1
+    elseif splitted[1] == "buk" then -- Buffer up ok
+      bufferInput = bufferInput + 1
     elseif splitted[1] == "fix" then -- Connect ID sent from peer
       local p = getPlayerWithAddress(tostring(event.peer))
       if p then
@@ -254,13 +267,30 @@ end
 
 function mainMenuUI(dt)
   if not running then
+    if hosting then
+      -- Buffer buttons
+      suit.layout:reset(410, 478, 4, 4)
+      
+      if suit.Button("-", suit.layout:col(30, 30)).hit then
+        server:send("bd")
+      end
+      suit.Label(bufferInput, {align="center"}, suit.layout:col(30, 30))
+      if suit.Button("+", suit.layout:col(30, 30)).hit then
+        server:send("bu")
+      end
+    end
+    
     -- This "resets" the layout, which means it literally re-sets the layout
     -- in a different spot with a padding of 4 on left, right, top and bottom.
     suit.layout:reset(156, 300, 4, 4)
     
     -- This simply creates a text field in the layout set above with a
     -- width of 200 and height of 30.
-    suit.Input(input, suit.layout:row(200, 30)) -- Host ID Box
+    if (not joined) or hosting then
+      suit.Input(hostIdInput, suit.layout:row(200, 30)) -- Host ID Box
+    else
+      suit.layout:row(200, 30)
+    end
     
     -- The left button is set in the layout in a row under the last element
     -- placed (host id textfield). The label and function of the button changes 
@@ -288,8 +318,8 @@ function mainMenuUI(dt)
     -- has 4 states instead of 2.
     if suit.Button(rightBtnText, suit.layout:col(98, 30)).hit then
       if not joined then            -- click Join
-        if tonumber(input.text) then
-          server:send("join " .. input.text)
+        if tonumber(hostIdInput.text) then
+          server:send("join " .. hostIdInput.text)
         else
           print("Host ID must be a number!")
         end
@@ -345,6 +375,7 @@ function love.update(dt)
 
   -- If we're all connected, and all ticks are ready to be executed and the game
   -- has started...update physics. If not, freeze physics until we are.
+  --print(allConnected(), allTicksRecieved(), running, tick)
   if allConnected() and allTicksRecieved() and running then
     player:queueMouse(love.mouse.getPosition())
     player:update(dt, host)
@@ -375,17 +406,17 @@ function love.keypressed(key)
   
   if key == "v" then
     if love.keyboard.isDown("lctrl") then
-      input.text = input.text .. love.system.getClipboardText()
+      hostIdInput.text = hostIdInput.text .. love.system.getClipboardText()
     end
   elseif key == "c" then
     if love.keyboard.isDown("lctrl") then
-      love.system.setClipboardText(input.text)
+      love.system.setClipboardText(hostIdInput.text)
       statusMessage("Copied text in input box")
     end
   elseif key == "x" then
     if love.keyboard.isDown("lctrl") then
-      love.system.setClipboardText(input.text)
-      input.text = ""
+      love.system.setClipboardText(hostIdInput.text)
+      hostIdInput.text = ""
       statusMessage("Cut text in input box")
     end
   end

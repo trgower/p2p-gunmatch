@@ -5,8 +5,6 @@ function PlayerController:new(mid)
   PlayerController.super.new(self, mid)
   PlayerController.super.remote = false
   PlayerController.super.connectstatus = true
-  
-  self.currentTick = Tick(self.bufferWidth + 1)
 end
 
 function PlayerController:update(dt, host)
@@ -52,4 +50,9 @@ function PlayerController:queueMouse(x, y)
     cmd:addData(y)
     self.currentTick:addCommand(cmd)
   end
+end
+
+function PlayerController:setBuffer(b)
+  PlayerController.super.setBuffer(self, b)
+  self.currentTick = Tick(self.bufferWidth + 1)
 end
