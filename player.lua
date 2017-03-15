@@ -34,14 +34,10 @@ function Player:new(mid, address)
   self.bufferWidth = 10 -- 5 ticks
   self.ticks = {}
   self.neededTick = self.bufferWidth + 1
-  self.currentTick = Tick(self.bufferWidth + 1)
-  self.remote = false
-  self.connectstatus = true
-  if address then
-    self.address = address
-    self.remote = true
-    self.connectstatus = false
-  end
+  self.remote = true
+  self.connectstatus = false
+  self.address = address
+  self.reconciled = false
   self.mid = mid
   self.image = love.graphics.newImage("assets/" .. self.mid .. ".png")
   
@@ -53,20 +49,9 @@ end
 --- Updates the player's position/physics.
 -- This is called every love.update(dt)
 -- @param dt delta time since last called
-function Player:update(dt, host)
+function Player:update(dt)
   -- execute command in buffer 
   self:executeTick(self.buffer:popleft())
-  
-  -- add commands to buffer (tick + buffer)
-  if not self.remote then
-    if host then
-      host:broadcast(self.currentTick:serialize())
-    end
-    self.buffer:pushright(self.currentTick)
-    self.currentTick = Tick(self.currentTick:getNumber())
-  else 
-    self:addTicksRemote()
-  end
   
   self:updateAngle()
   self:updateDirectionVector()
@@ -74,8 +59,6 @@ function Player:update(dt, host)
     self.x = self.x + (self.direction.x * self.speed * dt)
     self.y = self.y + (self.direction.y * self.speed * dt)
   end
-  print(self.address, self.buffer:getCount())
-  self.currentTick:incTickNum()
 end
 
 --- Draws the player's image.
@@ -108,7 +91,9 @@ function Player:updateDirectionVector()
   end
 end
 
---- Executes the tick yo
+--- Executes the tick
+-- Loops through all the commands given in the tick and executes them.
+-- @param tick The Tick object to execute
 function Player:executeTick(tick)
   local cmds = tick:getCommands()
   for i, cmd in pairs(cmds) do
@@ -127,7 +112,10 @@ function Player:executeTick(tick)
   end
 end
 
-function Player:addTicks()
+--- Adds the next tick needed to the buffer.
+-- If the buffer has tick #5 on the right, then it will try to find tick #6 to add.
+-- Returns true if a proper tick was found, false otherwise.
+function Player:pushNextNeededTick()
   for i, v in pairs(self.ticks) do
     if tonumber(i) == tonumber(self.neededTick) then
       self.buffer:pushright(v)
@@ -139,21 +127,10 @@ function Player:addTicks()
   return false
 end
 
-function Player:addTicksRemote()
-  while self:addTicks() do
-  end
-end
-
-function Player:isConnected()
-  return self.connectstatus
-end
-
-function Player:connected()
-  self.connectstatus = true
-end
-
-function Player:disconnected()
-  self.connectstatus = false
+--- Pushes all ticks on the buffer if possible.
+-- Loops until it cannot find a tick to add to the buffer.
+function Player:pushAllPossibleTicks()
+  while self:pushNextNeededTick() do end
 end
 
 --- Updates the character's angle according to the mouse cursor.
@@ -185,39 +162,10 @@ function Player:keyUp(dir)
   end
 end
 
-function Player:queueKeyDown(key)
-  local c = self.currentTick:getCommands()["kd"]
-  if c then
-    c:addData(key)
-  else
-    cmd = Command("kd")
-    cmd:addData(key)
-    self.currentTick:addCommand(cmd)
-  end
-end
-
-function Player:queueKeyUp(key)
-  local c = self.currentTick:getCommands()["ku"]
-  if c then
-    c:addData(key)
-  else
-    cmd = Command("ku")
-    cmd:addData(key)
-    self.currentTick:addCommand(cmd)
-  end
-end
-
-function Player:queueMouse(x, y)
-  if self.currentTick:getCommands()["m"] then
-    self.currentTick:modCommandData("m", {x, y})
-  else
-    cmd = Command("m")
-    cmd:addData(x)
-    cmd:addData(y)
-    self.currentTick:addCommand(cmd)
-  end
-end
-
+--- Processes tick data sent over the network into a Tick object.
+-- It then adds the Tick object to the table self.ticks and awaits to be added by
+-- pushNextNeededTick()
+-- @param data byte string sent over the network
 function Player:processTickData(data)
   local splitted = Split.split(data)
   local i = 1
@@ -253,6 +201,8 @@ function Player:processTickData(data)
   self.ticks[tick:getNumber()] = tick
 end
 
+--- Checks if the given tick number is ready to execute in the buffer.
+-- @param tnum Tick number corresponding to a tick in the buffer.
 function Player:tickReady(tnum)
   local t = self.buffer:peekleft()
   if t and (tonumber(t:getNumber()) == tonumber(tnum)) then
@@ -271,14 +221,57 @@ function Player:getY()
   return self.y
 end
 
+--- Returns true is player was connected, false otherwise.
+function Player:isConnected()
+  return self.connectstatus
+end
+
+function Player:setcid(cid)
+  self.cid = cid
+end
+
+--- Sets self.connectstatus to true
+function Player:connected(cid)
+  if not self:isConnected() then  
+    self.cid = cid
+    self.connectstatus = true
+  end
+end
+
+--- Sets self.connectstatus to false
+function Player:disconnected()
+  self.connectstatus = false
+end
+
+--- Returns true if the player object is the local player(you)
 function Player:isLocal()
   return not self.remote
 end
 
+--- Returns true if the player object is a remote peer(them)
 function Player:isRemote()
   return self.remote
 end
 
+--- Returns the address of the remote peer if the player object is remote.
+-- Returns nil if the player object is local.
 function Player:getAddress()
   return self.address
+end
+
+--- Returns the unique connect_id of the peer assigned to this player.
+function Player:getConnectId()
+  return self.cid
+end
+
+--- Sets self.reconciled.
+-- This is used to check if the peer has agreed on a connection to use.
+-- This helps remove duplicate connections created by NAT Hole punching
+function Player:setReconciled(r)
+  self.reconciled = r
+end
+
+--- Returns self.reconciled
+function Player:isReconciled()
+  return self.reconciled
 end
