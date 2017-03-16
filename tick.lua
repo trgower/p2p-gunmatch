@@ -30,8 +30,8 @@ end
 function Tick:serialize()
   local ser = "t " .. self.number
   for i, v in pairs(self.commands) do
-    if i == "m" then
-      ser = ser .. " " .. i .. " " .. v:getData()[1] .. " " .. v:getData()[2]
+    if i == "a" then
+      ser = ser .. " " .. i .. " " .. v:getData()[1]
     elseif i == "kd" then
       ser = ser .. " " .. i .. " "
       for j, k in pairs(v:getData()) do
@@ -42,6 +42,8 @@ function Tick:serialize()
       for j, k in pairs(v:getData()) do
         ser = ser .. k
       end
+    elseif i == "s" then
+      ser = ser .. " " .. i
     end
   end
   return ser

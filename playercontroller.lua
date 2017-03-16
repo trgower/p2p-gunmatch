@@ -1,10 +1,10 @@
 require "player"
 PlayerController = Player:extend()
 
-function PlayerController:new(mid)
-  PlayerController.super.new(self, mid)
-  PlayerController.super.remote = false
-  PlayerController.super.connectstatus = true
+function PlayerController:new(world, name, spot)
+  PlayerController.super.new(self, world, name, spot)
+  self.remote = false
+  self.connectstatus = true
 end
 
 function PlayerController:update(dt, host)
@@ -41,13 +41,21 @@ function PlayerController:queueKeyUp(key)
   end
 end
 
-function PlayerController:queueMouse(x, y)
-  if self.currentTick:getCommands()["m"] then
-    self.currentTick:modCommandData("m", {x, y})
+function PlayerController:queueAngle(x, y)
+  local a = self:getAngleTo(x, y)
+  if self.currentTick:getCommands()["a"] then
+    self.currentTick:modCommandData("a", {a})
   else
-    cmd = Command("m")
-    cmd:addData(x)
-    cmd:addData(y)
+    cmd = Command("a")
+    cmd:addData(a)
+    self.currentTick:addCommand(cmd)
+  end
+end
+
+function PlayerController:queueShoot()
+  local c = self.currentTick:getCommands()["s"]
+  if not c then
+    cmd = Command("s")
     self.currentTick:addCommand(cmd)
   end
 end

@@ -1,43 +1,38 @@
+require "movable"
 require "buffer"
 require "split"
 require "tick"
 require "command"
-Object = require "classic"
-Player = Object:extend()
+require "bullet"
+Player = Movable:extend()
+
+local spots = {{x=100, y=100}, {x=412, y=100}, {x=100, y=412}, {x=412, y=412}}
+local models = {"Hitman", "Robot", "Soldier", "Survivor"}
 
 --- Creates a new Player object
-function Player:new(spot, address, mid)
+function Player:new(world, name, spot, mid)
+  Player.super.new(self, world, 0, 0, -10, 0, 20, 40, 
+    love.graphics.newImage("assets/" .. spot .. ".png"), 
+    0, 200, 1, 0, false)
+    
   spot = tonumber(spot)
   mid = tonumber(mid)
-  if spot == 1 then
-    self.x = 100
-    self.y = 100
-  elseif spot == 2 then
-    self.x = 412
-    self.y = 100
-  elseif spot == 3 then
-    self.x = 100
-    self.y = 412
-  elseif spot == 4 then
-    self.x = 412
-    self.y = 412
-  end
   
-  self.angle = 0
-  self.mouse = {}
-  self.mouse.x = 0
-  self.mouse.y = 0
-  self.direction = {}
-  self.direction.x = 1
-  self.direction.y = 0
+  self.body:setX(spots[spot].x)
+  self.body:setY(spots[spot].y)
+  
+  self.bullets = {}
+  self.world = world
+  
+  self.name = name
+  self.health = 100
+  self.latency = 0
   self.keysDown = {} -- North('n') South('s') East('e') West('w')
-  self.speed = 200
   self.buffer = Buffer()
   self.bufferWidth = 10
   self.ticks = {}
   self.remote = true
   self.connectstatus = false
-  self.address = address
   self.reconciled = false
   if mid then
     self.mid = mid
@@ -45,7 +40,9 @@ function Player:new(spot, address, mid)
     self.mid = spot
   end
   self.mnum = 4
-  self.image = love.graphics.newImage("assets/" .. self.mid .. ".png")
+  
+  self.fixture:setSensor(true)
+  self.fixture:setUserData(self)
   
 end
 
@@ -53,22 +50,39 @@ end
 -- This is called every love.update(dt)
 -- @param dt delta time since last called
 function Player:update(dt)
+  self:updateDirectionVector()
+  self:setMoving(table.getn(self.keysDown) > 0)
+  
   -- execute command in buffer 
   self:executeTick(self.buffer:popleft())
   
-  self:updateAngle()
-  self:updateDirectionVector()
-  if table.getn(self.keysDown) > 0 then
-    self.x = self.x + (self.direction.x * self.speed * dt)
-    self.y = self.y + (self.direction.y * self.speed * dt)
+  for i, b in ipairs(self.bullets) do
+    if b:destroyed() then
+      table.remove(self.bullets, i)
+    end
   end
 end
 
 --- Draws the player's image.
 -- This is called every love.draw()
-function Player:draw()
-  love.graphics.draw(self.image, self.x, self.y, self.angle, 1, 1,
-    self.image:getWidth() / 2, self.image:getHeight() / 2)
+function Player:draw() 
+  Player.super.draw(self)
+ 
+  love.graphics.print(self.health, self.body:getX(), self.body:getY() - 25, 0, 
+    1, 1, self.image:getWidth() / 2)
+ 
+  if self.remote then
+    love.graphics.print(self.name .. "(" .. self.latency .. ")", self.body:getX(), 
+      self.body:getY() + 25, 0, 1, 1, self.image:getWidth() / 2)
+  else
+    love.graphics.print(self.name, self.body:getX(), self.body:getY() + 25, 0, 
+      1, 1, self.image:getWidth() / 2)
+  end
+  
+  for i, b in ipairs(self.bullets) do
+    b:draw()
+  end
+  
 end
 
 --- Updates the direction vector based on direction keys pressed.
@@ -100,9 +114,8 @@ end
 function Player:executeTick(tick)
   local cmds = tick:getCommands()
   for i, cmd in pairs(cmds) do
-    if cmd:getName() == "m" then
-      self.mouse.x = cmd:getData()[1]
-      self.mouse.y = cmd:getData()[2]
+    if cmd:getName() == "a" then
+      self:setAngle(cmd:getData()[1])
     elseif cmd:getName() == "kd" then
       for i, v in pairs(cmd:getData()) do
         self:keyDown(v)
@@ -111,6 +124,8 @@ function Player:executeTick(tick)
       for i, v in pairs(cmd:getData()) do
         self:keyUp(v)
       end
+    elseif cmd:getName() == "s" then
+      self:shoot(self.world)
     end
   end
 end
@@ -137,9 +152,8 @@ function Player:pushAllPossibleTicks()
 end
 
 --- Updates the character's angle according to the mouse cursor.
-function Player:updateAngle()
-  self.angle = math.atan2((self.mouse.y - self.y), 
-    (self.mouse.x - self.x))
+function Player:getAngleTo(x, y)
+  return math.atan2((y - self.body:getY()), (x - self.body:getX()))
 end
 
 --- Adds a direction to the keysDown table unless the direction
@@ -165,6 +179,19 @@ function Player:keyUp(dir)
   end
 end
 
+function Player:shoot(world)
+  table.insert(self.bullets, Bullet(world, self.body:getX(), self.body:getY(),
+    self.body:getAngle(), self))
+end
+
+function Player:damage(amt)
+  self.health = self.health - amt
+end
+
+function Player:getName()
+  return self.name
+end
+
 --- Processes tick data sent over the network into a Tick object.
 -- It then adds the Tick object to the table self.ticks and awaits to be added by
 -- pushNextNeededTick()
@@ -177,12 +204,10 @@ function Player:processTickData(data)
     if splitted[i] == "t" then
       i = i + 1
       tick = Tick(splitted[i])
-    elseif splitted[i] == "m" then
+    elseif splitted[i] == "a" then
       cmd = Command(splitted[i])
       i = i + 1
-      cmd:addData(splitted[i])
-      i = i + 1
-      cmd:addData(splitted[i])
+      cmd:addData(tonumber(splitted[i]))
       tick:addCommand(cmd)
     elseif splitted[i] == "kd" then
       cmd = Command(splitted[i])
@@ -198,6 +223,9 @@ function Player:processTickData(data)
         cmd:addData(c)
       end
       tick:addCommand(cmd)
+    elseif splitted[i] == "s" then
+      cmd = Command(splitted[i])
+      tick:addCommand(cmd)
     end
     i = i + 1
   end
@@ -212,16 +240,6 @@ function Player:tickReady(tnum)
     return true
   end
   return false
-end
-
---- Returns self.x
-function Player:getX()
-  return self.x
-end
-
---- Returns self.y
-function Player:getY()
-  return self.y
 end
 
 --- Returns true is player was connected, false otherwise.
@@ -256,12 +274,6 @@ function Player:isRemote()
   return self.remote
 end
 
---- Returns the address of the remote peer if the player object is remote.
--- Returns nil if the player object is local.
-function Player:getAddress()
-  return self.address
-end
-
 --- Returns the unique connect_id of the peer assigned to this player.
 function Player:getConnectId()
   return self.cid
@@ -279,6 +291,8 @@ function Player:isReconciled()
   return self.reconciled
 end
 
+--- Sets the tick buffer
+-- @param b buffer width
 function Player:setBuffer(b)
   self.bufferWidth = b
   self.neededTick = self.bufferWidth + 1
@@ -288,6 +302,8 @@ function Player:setBuffer(b)
   end
 end
 
+--- Switches model to the model on the "left"
+-- This decrements mid if it's greater than 1. Sets it to 4 otherwise
 function Player:leftModel()
   if self.mid == 1 then
     self.mid = 4
@@ -297,6 +313,8 @@ function Player:leftModel()
   self.image = love.graphics.newImage("assets/" .. self.mid .. ".png")
 end
 
+--- Switches model to the model on the "right"
+-- This increments mid if it's less than 4. Sets it to 1 otherwise
 function Player:rightModel()
   if self.mid == self.mnum then
     self.mid = 1
@@ -306,11 +324,24 @@ function Player:rightModel()
   self.image = love.graphics.newImage("assets/" .. self.mid .. ".png")
 end
 
+--- Return the player's model ID
 function Player:getModel()
   return self.mid
 end
 
+--- Sets the player's model ID
+-- @param m new model id
 function Player:setModel(m)
   self.mid = m
   self.image = love.graphics.newImage("assets/" .. self.mid .. ".png")
+end
+
+function Player:getModelName()
+  return models[self.mid]
+end
+
+--- Sets the players latency
+-- @param l new latency
+function Player:setLatency(l)
+  self.latency = l
 end
