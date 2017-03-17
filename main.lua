@@ -493,16 +493,6 @@ function love.mousepressed(x, y, button, istouch)
 end
 
 function beginContact(a, b, coll)
-  if a:getUserData().shooter and b:getUserData().shooter then
-    a:getUserData():destroy()
-    b:getUserData():destroy()
-  elseif a:getUserData().shooter then -- a is the bullet
-    b:getUserData():damage(1)
-    a:getUserData():destroy()
-  elseif b:getUserData().shooter then -- b is the bullet
-    a:getUserData():damage(1)
-    b:getUserData():destroy()
-  end
 end
  
 function endContact(a, b, coll)

@@ -50,17 +50,21 @@ end
 -- This is called every love.update(dt)
 -- @param dt delta time since last called
 function Player:update(dt)
-  for i, b in ipairs(self.bullets) do
-    if b:destroyed() then
-      table.remove(self.bullets, i)
-    end
-  end
-
   -- execute command in buffer 
   self:executeTick(self.buffer:popleft())
 
   self:updateDirectionVector()
   self:setMoving(table.getn(self.keysDown) > 0)
+  
+  for i, b in ipairs(self.bullets) do
+    b:update(dt)
+  end
+  
+  for i, b in ipairs(self.bullets) do
+    if b:isDestroyed() then
+      table.remove(self.bullets, i)
+    end
+  end
 end
 
 --- Draws the player's image.
@@ -181,9 +185,9 @@ function Player:keyUp(dir)
 end
 
 function Player:shoot(world)
-  --Bullet(world, self):fire()
-  table.insert(self.bullets, Bullet(world, self.body:getX(), self.body:getY(),
-    self.body:getAngle(), self))
+  local b = Bullet(world, self)
+  b:fire()
+  table.insert(self.bullets, b)
 end
 
 function Player:damage(amt)
