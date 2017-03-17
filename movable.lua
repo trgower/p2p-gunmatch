@@ -11,10 +11,6 @@ function Movable:new(world, x, y, xSOff, ySOff, width, height, image, rotation, 
   self.moving = false
   
   self.body:setType("dynamic")
-  if startMoving then
-    self.body:setLinearVelocity(self.direction.x * self.speed,
-      self.direction.y * self.speed)
-  end
   
 end
 

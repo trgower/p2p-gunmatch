@@ -36,7 +36,7 @@ local hostIdInput = {text = ""}
 local nameInput = {text = "Player"}
 local bufferInput = 10
 
-local fixedStep = 0.01666 / 2 -- 120Hz (why not)
+local fixedStep = 0.016666667 -- 60Hz
 
 function love.load()
   -- Allows the user to hold down a key to simulate repeated key presses
@@ -125,7 +125,35 @@ end
 -- This is used to update the world's phyiscs and game state.
 -- @param dt delta time in seconds since last call
 function love.update(dt)
+  
+  love.processAllRecievedPackets(host:service())
+  
+  -- Start game if everyone is accounted for
+  if (not running) and love.allReconciled() then
+    running = true
+    love.resetUnassignedPeers()
+  end
+  
+  -- Send reconcile once if we haven't already
+  if (not running) and love.allConnected() and (not reconSent) then
+    love.sendReconcile()
+  end
 
+  -- If we're all connected,and all ticks are ready to be executed and the game
+  -- has started...update physics. If not, freeze physics until we are.
+  if love.allConnected() and love.allTicksRecieved() and running then
+    world:update(dt)
+    player:queueAngle(love.mouse.getPosition())
+    player:update(dt, host)
+    for i, p in pairs(players) do
+      p:update(dt)
+    end
+
+    tick = tick + 1
+  end
+  
+  --- MEASUREMENTS AND TIMERS ---
+  
   -- Measure ping between all peers
   pingMeasureTime = pingMeasureTime + dt
   if pingMeasureTime >= pingEverySeconds then
@@ -141,34 +169,6 @@ function love.update(dt)
     pingMeasureTime = 0
   end
   
-  love.processAllRecievedPackets(host:service(5))
-  -- Push all possible ticks to buffer in each player
-  for i, p in pairs(players) do
-    p:pushAllPossibleTicks()
-  end
-  
-  -- Start game if everyone is accounted for
-  if (not running) and love.allReconciled() then
-    running = true
-    love.resetUnassignedPeers()
-  end
-  
-  -- If not running
-  love.sendReconcile()
-
-  -- If we're all connected, and all ticks are ready to be executed and the game
-  -- has started...update physics. If not, freeze physics until we are.
-  if love.allConnected() and love.allTicksRecieved() and running then
-    world:update(dt)
-    player:queueAngle(love.mouse.getPosition())
-    player:update(dt, host)
-    for i, p in pairs(players) do
-      p:update(dt)
-    end
-
-    tick = tick + 1
-  end
-  
   -- Measure bandwidth
   bandMeasureTime = bandMeasureTime + dt
   if bandMeasureTime >= bandEverySeconds then
@@ -181,6 +181,7 @@ function love.update(dt)
     bandMeasureTime = 0
   end
   
+  -- Status message timer (6 seconds)
   if statusUp then
     statusTime = statusTime + dt
     if statusTime >= statusTimeEnd then
@@ -244,6 +245,7 @@ function love.processEvent(event)
       local tpeer = Player(world, splitted[5], splitted[3], splitted[4])
       players[splitted[2]] = tpeer
     elseif splitted[1] == "left" then -- A player has left the lobby/game
+      players[splitted[2]]:destroy()
       players[splitted[2]] = nil
       statusMessage("A peer has left")
     elseif splitted[1] == "hostleft" then -- The host has left the lobby!
@@ -252,7 +254,9 @@ function love.processEvent(event)
       ready = false
       leftBtnText = "Host"
       rightBtnText = "Join"
+      love.destroyAllPlayerBodies()
       players = {}
+      player:destroy()
       player = nil
       running = false
       tick = 1
@@ -284,11 +288,7 @@ function love.processEvent(event)
         p:setReconciled(true)
       end
     else -- Game tick data
-      for i, p in pairs(players) do
-        if p:getConnectId() == event.peer:connect_id() then
-          p:processTickData(event.data)
-        end
-      end
+      players[tostring(event.peer)]:processTickData(event.data)
     end
   elseif event.type == "connect" then
     if event.peer == server then
@@ -300,6 +300,7 @@ function love.processEvent(event)
     if event.peer == server then
       cstatus = "disconnected"
     else
+      players[tostring(event.peer)]:destroy()
       players[tostring(event.peer)] = nil
     end
   end
@@ -374,7 +375,9 @@ function love.mainMenuUI()
         ready = false
         leftBtnText = "Host"
         rightBtnText = "Join"
+        love.destroyAllPlayerBodies()
         players = {}
+        player:destroy()
         player = nil
         running = false
         tick = 1
@@ -494,10 +497,10 @@ function beginContact(a, b, coll)
     a:getUserData():destroy()
     b:getUserData():destroy()
   elseif a:getUserData().shooter then -- a is the bullet
-    b:getUserData():damage(5)
+    b:getUserData():damage(1)
     a:getUserData():destroy()
   elseif b:getUserData().shooter then -- b is the bullet
-    a:getUserData():damage(5)
+    a:getUserData():damage(1)
     b:getUserData():destroy()
   end
 end
@@ -565,6 +568,7 @@ end
 --- Returns true if every player is ready to execute the next tick
 function love.allTicksRecieved()
   for i, p in pairs(players) do
+    p:pushAllPossibleTicks()
     if not p:tickReady(tick) then
       return false
     end
@@ -610,19 +614,22 @@ end
 
 --- Sends information necessary to reconcile connect ids
 function love.sendReconcile()
-  if (not running) and love.allConnected() and (not reconSent) then
-    
-    local i = 1
-    while host:get_peer(i) and (i < host:peer_count()) and 
-        not (tostring(host:get_peer(i)) == "0.0.0.0:0") do
-      local p = players[tostring(host:get_peer(i))]
-      if p then
-        host:get_peer(i):send("fix " .. p:getConnectId())
-      end
-      i = i + 1
+  local i = 1
+  while host:get_peer(i) and (i < host:peer_count()) and 
+    not (tostring(host:get_peer(i)) == "0.0.0.0:0") do
+    local p = players[tostring(host:get_peer(i))]
+    if p then
+      host:get_peer(i):send("fix " .. p:getConnectId())
     end
-    
-    reconSent = true
+    i = i + 1
+  end
+  
+  reconSent = true
+end
+
+function love.destroyAllPlayerBodies()
+  for i, p in pairs(players) do
+    p:destroy()
   end
 end
 

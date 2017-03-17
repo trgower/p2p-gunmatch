@@ -7,15 +7,16 @@ function Thing:new(world, x, y, xSOff, ySOff, width, height, image, rotation)
   self.image = image
   
   self.body = love.physics.newBody(world, x, y)
-  self.body:setAngle(rotation)
-  self.shape = love.physics.newRectangleShape(x + xSOff, y + ySOff, width, height, rotation)
+  self.shape = love.physics.newRectangleShape(x + xSOff, y + ySOff, width, height, 0)
   self.fixture = love.physics.newFixture(self.body, self.shape)
+  self.body:setAngle(rotation)
 end
 
 function Thing:draw()
   love.graphics.draw(self.image, self.body:getX(), self.body:getY(), 
     self.body:getAngle(), 1, 1,
     self.image:getWidth() / 2, self.image:getHeight() / 2)
+  --love.graphics.polygon("line", self.body:getWorldPoints(self.shape:getPoints()))
 end
 
 function Thing:setPosition(x, y)
@@ -59,7 +60,7 @@ function Thing:setAngle(rotation)
   self.body:setAngle(rotation)
 end
 
-function Thing:getRotation() 
+function Thing:getAngle() 
   return self.body:getAngle()
 end
 

@@ -13,7 +13,7 @@ local models = {"Hitman", "Robot", "Soldier", "Survivor"}
 function Player:new(world, name, spot, mid)
   Player.super.new(self, world, 0, 0, -10, 0, 20, 40, 
     love.graphics.newImage("assets/" .. spot .. ".png"), 
-    0, 200, 1, 0, false)
+    0, 150, 1, 0, false)
     
   spot = tonumber(spot)
   mid = tonumber(mid)
@@ -21,8 +21,8 @@ function Player:new(world, name, spot, mid)
   self.body:setX(spots[spot].x)
   self.body:setY(spots[spot].y)
   
-  self.bullets = {}
   self.world = world
+  self.bullets = {}
   
   self.name = name
   self.health = 100
@@ -50,17 +50,17 @@ end
 -- This is called every love.update(dt)
 -- @param dt delta time since last called
 function Player:update(dt)
-  self:updateDirectionVector()
-  self:setMoving(table.getn(self.keysDown) > 0)
-  
-  -- execute command in buffer 
-  self:executeTick(self.buffer:popleft())
-  
   for i, b in ipairs(self.bullets) do
     if b:destroyed() then
       table.remove(self.bullets, i)
     end
   end
+
+  -- execute command in buffer 
+  self:executeTick(self.buffer:popleft())
+
+  self:updateDirectionVector()
+  self:setMoving(table.getn(self.keysDown) > 0)
 end
 
 --- Draws the player's image.
@@ -113,20 +113,22 @@ end
 -- @param tick The Tick object to execute
 function Player:executeTick(tick)
   local cmds = tick:getCommands()
-  for i, cmd in pairs(cmds) do
-    if cmd:getName() == "a" then
-      self:setAngle(cmd:getData()[1])
-    elseif cmd:getName() == "kd" then
-      for i, v in pairs(cmd:getData()) do
-        self:keyDown(v)
-      end
-    elseif cmd:getName() == "ku" then
-      for i, v in pairs(cmd:getData()) do
-        self:keyUp(v)
-      end
-    elseif cmd:getName() == "s" then
-      self:shoot(self.world)
+  -- Commands must be executed in the right order
+  if cmds["a"] then
+    self:setAngle(cmds["a"]:getData()[1])
+  end
+  if cmds["kd"] then
+    for i, v in ipairs(cmds["kd"]:getData()) do
+      self:keyDown(v)
     end
+  end
+  if cmds["ku"] then
+    for i, v in ipairs(cmds["ku"]:getData()) do
+      self:keyUp(v)
+    end
+  end
+  if cmds["s"] then
+    self:shoot(self.world)
   end
 end
 
@@ -134,13 +136,12 @@ end
 -- If the buffer has tick #5 on the right, then it will try to find tick #6 to add.
 -- Returns true if a proper tick was found, false otherwise.
 function Player:pushNextNeededTick()
-  for i, v in pairs(self.ticks) do
-    if tonumber(i) == tonumber(self.neededTick) then
-      self.buffer:pushright(v)
-      self.ticks[i] = nil
-      self.neededTick = self.neededTick + 1
-      return true
-    end
+  local t = self.ticks[self.neededTick]
+  if t then
+    self.buffer:pushright(t)
+    self.ticks[self.neededTick] = nil
+    self.neededTick = self.neededTick + 1
+    return true
   end
   return false
 end
@@ -160,7 +161,7 @@ end
 -- is already in the table.
 -- @param dir The direction pressed. n, s, e, or w
 function Player:keyDown(dir)
-  for i, v in pairs(self.keysDown) do
+  for i, v in ipairs(self.keysDown) do
     if v == dir then
       return
     end
@@ -172,7 +173,7 @@ end
 -- It will also remove multiple occurrances of the direction.
 -- @param dir The direction pressed. n, s, e, or w
 function Player:keyUp(dir)
-  for i, v in pairs(self.keysDown) do
+  for i, v in ipairs(self.keysDown) do
     if v == dir then
       table.remove(self.keysDown, i)
     end
@@ -180,6 +181,7 @@ function Player:keyUp(dir)
 end
 
 function Player:shoot(world)
+  --Bullet(world, self):fire()
   table.insert(self.bullets, Bullet(world, self.body:getX(), self.body:getY(),
     self.body:getAngle(), self))
 end

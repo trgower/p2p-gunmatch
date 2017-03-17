@@ -2,7 +2,7 @@ Object = require "classic"
 Tick = Object:extend()
 
 function Tick:new(number)
-  self.number = number
+  self.number = tonumber(number)
   self.commands = {}
 end
 
@@ -11,7 +11,6 @@ function Tick:getNumber()
 end
 
 function Tick:addCommand(command)
-  --table.insert(commands, command)
   self.commands[command:getName()] = command
 end
 
